@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electronic Configuration Visualiser</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #ffffff;
+  --surface:   #f4f6f9;
+  --surface2:  #edf0f5;
+  --border:    #c8d0dc;
+  --border2:   #a0aec0;
+  --accent:    #0070cc;
+  --accent2:   #005aa0;
+  --spin-up:   #d45f00;
+  --spin-down: #0066bb;
+  --text:      #1a2a3a;
+  --text-dim:  #7a90a8;
+  --text-mid:  #4a6080;
+  --green:     #007a40;
+  --red:       #cc1133;
+  --orange:    #c06000;
+  --box-w: 50px;
+  --box-h: 64px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Exo 2',sans-serif;
+  padding:14px 16px 30px;
+  overflow-x:hidden;
+}
+/* no background overlay */
+.wrap{position:relative;z-index:1;max-width:1340px;margin:0 auto}
+
+/* ── HEADER ── */
+header{
+  text-align:center;padding:16px 0 14px;
+  border-bottom:1px solid var(--border);margin-bottom:14px;
+}
+header h1{
+  font-size:1.75rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--accent);text-shadow:none;
+}
+header p{
+  font-size:.78rem;color:var(--text-dim);letter-spacing:.12em;margin-top:5px;
+  text-transform:uppercase;
+}
+
+/* ── INPUT PANEL ── */
+.ctrl-panel{
+  display:flex;flex-wrap:wrap;gap:9px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:12px 16px;margin-bottom:12px;
+}
+.ctrl-group{display:flex;align-items:center;gap:7px}
+.ctrl-panel label{
+  font-size:.72rem;font-weight:700;letter-spacing:.1em;
+  color:var(--text-dim);text-transform:uppercase;white-space:nowrap;
+}
+input[type=text],input[type=number]{
+  background:var(--bg);border:1px solid var(--border2);border-radius:4px;
+  color:var(--text);font-family:'Share Tech Mono',monospace;font-size:1rem;
+  padding:5px 9px;outline:none;transition:border-color .2s,box-shadow .2s;
+  text-align:center;
+}
+input[type=text]{width:68px}
+input[type=number]{width:62px}
+input:focus{border-color:var(--accent);box-shadow:0 0 8px rgba(0,210,255,.2)}
+
+.btn{
+  background:transparent;border:1px solid var(--accent);border-radius:4px;
+  color:var(--accent);cursor:pointer;font-family:'Exo 2',sans-serif;
+  font-size:.8rem;font-weight:700;letter-spacing:.07em;
+  padding:6px 13px;text-transform:uppercase;
+  transition:background .15s,box-shadow .15s,transform .1s;white-space:nowrap;
+}
+.btn:hover{background:rgba(0,210,255,.1);box-shadow:0 0 10px rgba(0,210,255,.18)}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.btn-primary{background:var(--accent);color:var(--bg);font-weight:800}
+.btn-primary:hover{background:#33ddff;box-shadow:0 0 16px rgba(0,210,255,.4)}
+.btn-danger{border-color:var(--red);color:var(--red)}
+.btn-danger:hover{background:rgba(255,68,102,.1)}
+.btn-green{border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:rgba(0,230,144,.1)}
+
+.speed-group{display:flex;align-items:center;gap:7px;margin-left:auto}
+input[type=range]{width:90px;accent-color:var(--accent);cursor:pointer}
+#speedLabel{font-size:.75rem;color:var(--text-mid);width:44px;font-family:'Share Tech Mono',monospace}
+
+/* ── INFO BAR ── */
+.info-bar{
+  display:none;flex-wrap:wrap;gap:18px;align-items:center;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:9px 16px;margin-bottom:10px;
+}
+.info-cell{display:flex;flex-direction:column;gap:1px}
+.info-cell .lbl{font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em}
+.info-cell .val{font-family:'Share Tech Mono',monospace;font-size:1.1rem;color:var(--accent);font-weight:700}
+.config-live{
+  flex:1;font-family:'Share Tech Mono',monospace;font-size:.88rem;
+  color:var(--green);word-break:break-all;line-height:1.5;
+}
+.exc-badge{
+  display:none;background:rgba(255,140,0,.14);border:1px solid rgba(255,140,0,.4);
+  border-radius:4px;color:var(--orange);font-size:.72rem;font-weight:700;
+  padding:3px 9px;letter-spacing:.06em;
+}
+.exc-badge.on{display:inline-block}
+
+/* ── STATUS ── */
+.status{
+  text-align:center;font-size:.82rem;color:var(--accent);min-height:18px;
+  margin-bottom:8px;letter-spacing:.05em;transition:color .3s;
+}
+.status.removing{color:var(--red)}
+.status.done{color:var(--green)}
+
+/* ── PROGRESS ── */
+.prog-wrap{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:12px}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--spin-up));width:0;transition:width .15s}
+
+/* ── DIAGRAM ── */
+.diagram{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:14px 12px 10px;overflow-x:auto;
+}
+
+.period-row{
+  display:flex;align-items:center;gap:6px;
+  margin-bottom:8px;min-width:max-content;
+}
+.plabel{
+  font-size:.62rem;color:var(--text-dim);letter-spacing:.06em;
+  width:56px;text-align:right;padding-right:8px;
+  border-right:1px solid var(--border);flex-shrink:0;line-height:1.3;
+  font-family:'Share Tech Mono',monospace;
+}
+
+/* Sublevel group */
+.sg{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 7px 4px;border:1px solid transparent;border-radius:6px;
+  transition:border-color .25s,background .25s,box-shadow .25s;
+}
+.sg.filling{
+  border-color:var(--accent);background:rgba(0,212,255,.04);
+  box-shadow:0 0 14px rgba(0,212,255,.13);
+}
+.sg.removing{
+  border-color:var(--red);background:rgba(255,68,102,.04);
+  box-shadow:0 0 14px rgba(255,68,102,.13);
+}
+.sg-label{
+  font-family:'Share Tech Mono',monospace;font-size:.72rem;
+  color:var(--text-dim);letter-spacing:.04em;transition:color .25s;
+}
+.sg.filling  .sg-label{color:var(--accent)}
+.sg.removing .sg-label{color:var(--red)}
+.sg-ec{
+  font-family:'Share Tech Mono',monospace;font-size:.62rem;
+  color:var(--text-mid);height:11px;
+}
+
+/* Orbitals row */
+.orbs{display:flex;gap:2px}
+
+/* Single orbital box */
+.obox{
+  width:var(--box-w);height:var(--box-h);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:4px;display:flex;flex-direction:row;
+  align-items:center;justify-content:space-around;
+  padding:6px 3px;position:relative;
+  transition:border-color .25s;
+}
+.sg.filling  .obox{border-color:rgba(0,212,255,.35)}
+.sg.removing .obox{border-color:rgba(255,68,102,.35)}
+/* no divider */
+
+.aslot{
+  width:20px;height:100%;display:flex;align-items:center;
+  justify-content:center;position:relative;z-index:1;
+}
+.arr{
+  font-size:28px;line-height:1;
+  opacity:0;transform:scaleY(0);transform-origin:bottom center;
+  transition:opacity .2s ease,transform .2s ease;
+}
+.arr.down{transform-origin:top center;}
+.arr.on{opacity:1;transform:scaleY(1)}
+.arr.up{color:var(--spin-up);}
+.arr.down{color:var(--spin-down);}
+
+/* ── LEGEND ── */
+.legend{
+  display:flex;flex-wrap:wrap;gap:18px;justify-content:center;
+  padding:11px 0 4px;border-top:1px solid var(--border);margin-top:10px;
+  font-size:.76rem;color:var(--text-dim);
+}
+.leg-item{display:flex;align-items:center;gap:5px}
+.leg-arr{font-size:15px}
+
+/* ── PHASE DIVIDER in status ── */
+.phase-tag{
+  display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.1em;
+  padding:1px 7px;border-radius:3px;vertical-align:middle;margin-right:6px;
+}
+.phase-fill{background:rgba(0,212,255,.15);color:var(--accent);border:1px solid rgba(0,212,255,.3)}
+.phase-remove{background:rgba(255,68,102,.15);color:var(--red);border:1px solid rgba(255,68,102,.3)}
+
+/* Responsive */
+@media(max-width:700px){
+  :root{--box-w:38px;--box-h:50px}
+  header h1{font-size:1.3rem}
+  .arr{font-size:15px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Electronic Configuration Visualiser</h1>
+  <p>Aufbau Principle · Hund's Rule · Pauli Exclusion · Cation Removal</p>
+</header>
+
+<!-- CONTROLS -->
+<div class="ctrl-panel">
+  <div class="ctrl-group">
+    <label>Element</label>
+    <input type="text" id="elemIn" placeholder="e.g. Fe" maxlength="3" autocomplete="off"/>
+  </div>
+  <div class="ctrl-group">
+    <label>Charge</label>
+    <input type="number" id="chargeIn" value="0" min="-4" max="10" step="1"/>
+  </div>
+  <button class="btn btn-primary" id="btnVis">Visualise</button>
+  <button class="btn" id="btnStep" disabled>Step →</button>
+  <button class="btn" id="btnPlay" disabled>▶ Play</button>
+  <button class="btn btn-green" id="btnFull" disabled>⚡ Finish</button>
+  <button class="btn btn-danger" id="btnReset" disabled>↺ Reset</button>
+  <div class="speed-group">
+    <label>Speed</label>
+    <input type="range" id="speedSlider" min="1" max="5" value="3"/>
+    <span id="speedLabel">Med</span>
+  </div>
+</div>
+
+<!-- INFO BAR -->
+<div class="info-bar" id="infoBar">
+  <div class="info-cell">
+    <span class="lbl">Element</span>
+    <span class="val" id="iSym">—</span>
+  </div>
+  <div class="info-cell">
+    <span class="lbl">Z</span>
+    <span class="val" id="iZ">—</span>
+  </div>
+  <div class="info-cell">
+    <span class="lbl">Electrons</span>
+    <span class="val" id="iElec">—</span>
+  </div>
+  <div class="info-cell">
+    <span class="lbl">Progress</span>
+    <span class="val" id="iStep">0 / 0</span>
+  </div>
+  <span class="exc-badge" id="excBadge">⚡ Aufbau Exception</span>
+  <div class="config-live" id="cfgText"></div>
+</div>
+
+<!-- STATUS + PROGRESS -->
+<div class="status" id="status">Enter an element symbol (e.g. <b>Fe</b>) or atomic number, then click Visualise.</div>
+<div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+
+<!-- DIAGRAM -->
+<div class="diagram" id="diagram"></div>
+
+</div><!-- .wrap -->
+
+<script>
+// ══════════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════════
+
+const ELEMENTS = {
+  H:1,He:2,Li:3,Be:4,B:5,C:6,N:7,O:8,F:9,Ne:10,
+  Na:11,Mg:12,Al:13,Si:14,P:15,S:16,Cl:17,Ar:18,
+  K:19,Ca:20,Sc:21,Ti:22,V:23,Cr:24,Mn:25,Fe:26,
+  Co:27,Ni:28,Cu:29,Zn:30,Ga:31,Ge:32,As:33,Se:34,
+  Br:35,Kr:36,Rb:37,Sr:38,Y:39,Zr:40,Nb:41,Mo:42,
+  Tc:43,Ru:44,Rh:45,Pd:46,Ag:47,Cd:48,In:49,Sn:50,
+  Sb:51,Te:52,I:53,Xe:54,Cs:55,Ba:56,La:57,Ce:58,
+  Pr:59,Nd:60,Pm:61,Sm:62,Eu:63,Gd:64,Tb:65,Dy:66,
+  Ho:67,Er:68,Tm:69,Yb:70,Lu:71,Hf:72,Ta:73,W:74,
+  Re:75,Os:76,Ir:77,Pt:78,Au:79,Hg:80,Tl:81,Pb:82,
+  Bi:83,Po:84,At:85,Rn:86,Fr:87,Ra:88,Ac:89,Th:90,
+  Pa:91,U:92
+};
+
+const Z2SYM = {};
+Object.entries(ELEMENTS).forEach(([s,z])=>Z2SYM[z]=s);
+
+const ELEM_NAMES = {
+  1:'Hydrogen',2:'Helium',3:'Lithium',4:'Beryllium',5:'Boron',
+  6:'Carbon',7:'Nitrogen',8:'Oxygen',9:'Fluorine',10:'Neon',
+  11:'Sodium',12:'Magnesium',13:'Aluminium',14:'Silicon',15:'Phosphorus',
+  16:'Sulfur',17:'Chlorine',18:'Argon',19:'Potassium',20:'Calcium',
+  21:'Scandium',22:'Titanium',23:'Vanadium',24:'Chromium',25:'Manganese',
+  26:'Iron',27:'Cobalt',28:'Nickel',29:'Copper',30:'Zinc',
+  31:'Gallium',32:'Germanium',33:'Arsenic',34:'Selenium',35:'Bromine',
+  36:'Krypton',37:'Rubidium',38:'Strontium',39:'Yttrium',40:'Zirconium',
+  41:'Niobium',42:'Molybdenum',43:'Technetium',44:'Ruthenium',45:'Rhodium',
+  46:'Palladium',47:'Silver',48:'Cadmium',49:'Indium',50:'Tin',
+  51:'Antimony',52:'Tellurium',53:'Iodine',54:'Xenon',55:'Caesium',
+  56:'Barium',57:'Lanthanum',58:'Cerium',59:'Praseodymium',60:'Neodymium',
+  61:'Promethium',62:'Samarium',63:'Europium',64:'Gadolinium',65:'Terbium',
+  66:'Dysprosium',67:'Holmium',68:'Erbium',69:'Thulium',70:'Ytterbium',
+  71:'Lutetium',72:'Hafnium',73:'Tantalum',74:'Tungsten',75:'Rhenium',
+  76:'Osmium',77:'Iridium',78:'Platinum',79:'Gold',80:'Mercury',
+  81:'Thallium',82:'Lead',83:'Bismuth',84:'Polonium',85:'Astatine',
+  86:'Radon',87:'Francium',88:'Radium',89:'Actinium',90:'Thorium',
+  91:'Protactinium',92:'Uranium'
+};
+
+// Aufbau filling order
+const AUFBAU = [
+  {id:'1s',n:1,l:0,cnt:1},
+  {id:'2s',n:2,l:0,cnt:1},
+  {id:'2p',n:2,l:1,cnt:3},
+  {id:'3s',n:3,l:0,cnt:1},
+  {id:'3p',n:3,l:1,cnt:3},
+  {id:'4s',n:4,l:0,cnt:1},
+  {id:'3d',n:3,l:2,cnt:5},
+  {id:'4p',n:4,l:1,cnt:3},
+  {id:'5s',n:5,l:0,cnt:1},
+  {id:'4d',n:4,l:2,cnt:5},
+  {id:'5p',n:5,l:1,cnt:3},
+  {id:'6s',n:6,l:0,cnt:1},
+  {id:'4f',n:4,l:3,cnt:7},
+  {id:'5d',n:5,l:2,cnt:5},
+  {id:'6p',n:6,l:1,cnt:3},
+  {id:'7s',n:7,l:0,cnt:1},
+  {id:'5f',n:5,l:3,cnt:7},
+  {id:'6d',n:6,l:2,cnt:5},
+  {id:'7p',n:7,l:1,cnt:3},
+];
+const SUBMAP = Object.fromEntries(AUFBAU.map(s=>[s.id,s]));
+
+// Display layout by principal quantum number n
+// (3d shown in period 3 row, 4d/4f in period 4, etc.)
+// Filling still follows Aufbau order in the animation.
+const ROWS = [
+  {p:7,subs:['7s','7p']},
+  {p:6,subs:['6s','6p','6d']},
+  {p:5,subs:['5s','5p','5d','5f']},
+  {p:4,subs:['4s','4p','4d','4f']},
+  {p:3,subs:['3s','3p','3d']},
+  {p:2,subs:['2s','2p']},
+  {p:1,subs:['1s']},
+];
+
+// Exceptions to standard Aufbau (neutral atom electron counts per sublevel)
+// Key = Z, value = {sublevelId: count}
+const EXCEPTIONS = {
+  24:{id:'Cr', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':1,'3d':5}},       // [Ar] 3d⁵ 4s¹
+  29:{id:'Cu', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':1,'3d':10}},      // [Ar] 3d¹⁰ 4s¹
+  42:{id:'Mo', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':6,'5s':1,'4d':5}}, // [Kr] 4d⁵ 5s¹
+  47:{id:'Ag', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':6,'5s':1,'4d':10}},// [Kr] 4d¹⁰ 5s¹
+  46:{id:'Pd', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':6,'5s':0,'4d':10}},// [Kr] 4d¹⁰
+  79:{id:'Au', cfg:{'1s':2,'2s':2,'2p':6,'3s':2,'3p':6,'4s':2,'3d':10,'4p':6,'5s':2,'4d':10,'5p':6,'6s':1,'4f':14,'5d':10}}, // [Xe] 4f¹⁴ 5d¹⁰ 6s¹
+};
+
+// Superscript helper
+const SUPS = '⁰¹²³⁴⁵⁶⁷⁸⁹¹⁰¹¹¹²¹³¹⁴';
+function sup(n){
+  const map={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+  return String(n).split('').map(c=>map[c]||c).join('');
+}
+
+// ══════════════════════════════════════════════════
+//  CONFIGURATION LOGIC
+// ══════════════════════════════════════════════════
+
+/*
+ * Build the "add" sequence for a given electron count.
+ * excConfig: optional {sublevelId:count} override (for exceptions)
+ * Returns: [{sublevelId, orbIdx, spin:'up'|'down', action:'add'}]
+ */
+function buildAddSeq(electronCount, excConfig){
+  const seq = [];
+  if(excConfig){
+    // Use exception config; fill in Aufbau order
+    for(const sub of AUFBAU){
+      const cnt = excConfig[sub.id] || 0;
+      if(!cnt) continue;
+      const singles = Math.min(cnt, sub.cnt);
+      for(let i=0;i<singles;i++) seq.push({sublevelId:sub.id,orbIdx:i,spin:'up',action:'add'});
+      const pairs = cnt - sub.cnt;
+      for(let i=0;i<Math.max(0,pairs);i++) seq.push({sublevelId:sub.id,orbIdx:i,spin:'down',action:'add'});
+    }
+    return seq;
+  }
+  let rem = electronCount;
+  for(const sub of AUFBAU){
+    if(rem<=0) break;
+    const singles = Math.min(rem, sub.cnt);
+    for(let i=0;i<singles;i++){seq.push({sublevelId:sub.id,orbIdx:i,spin:'up',action:'add'});rem--;}
+    if(rem<=0) break;
+    const pairs = Math.min(rem, sub.cnt);
+    for(let i=0;i<pairs;i++){seq.push({sublevelId:sub.id,orbIdx:i,spin:'down',action:'add'});rem--;}
+  }
+  return seq;
+}
+
+/*
+ * From an add-sequence, derive {sublevelId: count} map.
+ */
+function seqToConfig(seq){
+  const c={};
+  for(const s of seq){
+    if(s.action==='add') c[s.sublevelId]=(c[s.sublevelId]||0)+1;
+  }
+  return c;
+}
+
+/*
+ * Build orbital state from config:
+ * orbState[sublevelId] = array of length cnt, each 0=empty, 1=up only, 2=both
+ */
+function configToOrbState(config){
+  const st={};
+  for(const sub of AUFBAU){
+    const filled = config[sub.id]||0;
+    const arr=Array(sub.cnt).fill(0);
+    let rem=filled;
+    for(let i=0;i<sub.cnt&&rem>0;i++){arr[i]=1;rem--;}   // singles
+    for(let i=0;i<sub.cnt&&rem>0;i++){arr[i]=2;rem--;}   // pairs
+    st[sub.id]=arr;
+  }
+  return st;
+}
+
+/*
+ * Build removal sequence for a cation.
+ * Rule: remove from highest n first; within same n, highest l first (e.g. 4p before 4s).
+ * Within an orbital: remove ↓ (paired) before ↑ (single), right-to-left.
+ */
+function buildRemovalSeq(atomConfig, charge){
+  const seq=[];
+  const orbSt=configToOrbState(atomConfig);
+
+  // Removal priority: sort by n desc, then l desc
+  const removalOrder=[...AUFBAU].sort((a,b)=>{
+    if(b.n!==a.n) return b.n-a.n;
+    return b.l-a.l;
+  });
+
+  let toRemove=charge;
+  for(const sub of removalOrder){
+    if(toRemove<=0) break;
+    const orbs=orbSt[sub.id];
+    if(!orbs) continue;
+
+    // First pass: remove ↓ (state=2) right to left
+    for(let i=orbs.length-1;i>=0&&toRemove>0;i--){
+      if(orbs[i]===2){
+        seq.push({sublevelId:sub.id,orbIdx:i,spin:'down',action:'remove'});
+        orbs[i]=1; toRemove--;
+      }
+    }
+    // Second pass: remove ↑ (state>=1) right to left
+    for(let i=orbs.length-1;i>=0&&toRemove>0;i--){
+      if(orbs[i]>=1){
+        seq.push({sublevelId:sub.id,orbIdx:i,spin:'up',action:'remove'});
+        orbs[i]=0; toRemove--;
+      }
+    }
+  }
+  return seq;
+}
+
+/*
+ * Build config string from config map (in Aufbau order)
+ */
+function cfgString(config){
+  return AUFBAU
+    .filter(sub=>(config[sub.id]||0)>0)
+    .map(sub=>`${sub.id}${sup(config[sub.id])}`)
+    .join(' ');
+}
+
+// ══════════════════════════════════════════════════
+//  DOM / DIAGRAM BUILD
+// ══════════════════════════════════════════════════
+
+function buildDiagram(){
+  const diag=document.getElementById('diagram');
+  diag.innerHTML='';
+
+  for(const row of ROWS){
+    const rowDiv=document.createElement('div');
+    rowDiv.className='period-row';
+
+    const pl=document.createElement('div');
+    pl.className='plabel';
+    pl.innerHTML=`PERIOD<br>${row.p}`;
+    rowDiv.appendChild(pl);
+
+    for(const sid of row.subs){
+      const sub=SUBMAP[sid];
+      const sg=document.createElement('div');
+      sg.className='sg'; sg.id='sg-'+sid;
+
+      const slbl=document.createElement('div');
+      slbl.className='sg-label'; slbl.textContent=sid;
+      sg.appendChild(slbl);
+
+      const orbsRow=document.createElement('div');
+      orbsRow.className='orbs';
+
+      for(let i=0;i<sub.cnt;i++){
+        const box=document.createElement('div');
+        box.className='obox';
+
+        // Up slot
+        const uSlot=document.createElement('div'); uSlot.className='aslot';
+        const uArr=document.createElement('span');
+        uArr.className='arr up'; uArr.id=`a-${sid}-${i}-up`; uArr.textContent='↿';
+        uSlot.appendChild(uArr);
+
+        // Down slot
+        const dSlot=document.createElement('div'); dSlot.className='aslot';
+        const dArr=document.createElement('span');
+        dArr.className='arr down'; dArr.id=`a-${sid}-${i}-down`; dArr.textContent='⇂';
+        dSlot.appendChild(dArr);
+
+        box.appendChild(uSlot); box.appendChild(dSlot);
+        orbsRow.appendChild(box);
+      }
+      sg.appendChild(orbsRow);
+
+      const ec=document.createElement('div'); ec.className='sg-ec'; ec.id='ec-'+sid;
+      sg.appendChild(ec);
+      rowDiv.appendChild(sg);
+    }
+    diag.appendChild(rowDiv);
+  }
+
+  // Legend
+  const leg=document.createElement('div'); leg.className='legend';
+  leg.innerHTML=`
+    <div class="leg-item"><span class="leg-arr" style="color:var(--spin-up)">↿</span> Spin up &nbsp;(mₛ = +½)</div>
+    <div class="leg-item"><span class="leg-arr" style="color:var(--spin-down)">⇂</span> Spin down (mₛ = −½)</div>
+    <div class="leg-item" style="color:var(--text-mid)">Layout: sublevels grouped by principal quantum number n</div>
+    <div class="leg-item" style="color:var(--text-mid)">Filling: Aufbau order (e.g. 4s filled before 3d)</div>
+    <div class="leg-item" style="color:var(--text-mid)">Cations: fill as atom → remove from highest n first</div>
+  `;
+  diag.appendChild(leg);
+}
+
+function clearDiagram(){
+  document.querySelectorAll('.arr').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.sg').forEach(e=>e.classList.remove('filling','removing'));
+  document.querySelectorAll('.sg-ec').forEach(e=>e.textContent='');
+}
+
+function clearHighlights(){
+  document.querySelectorAll('.sg').forEach(e=>e.classList.remove('filling','removing'));
+}
+
+function applyStep(step, instant=false){
+  const arrEl=document.getElementById(`a-${step.sublevelId}-${step.orbIdx}-${step.spin}`);
+  if(!arrEl) return;
+  const sg=document.getElementById('sg-'+step.sublevelId);
+  if(!instant){
+    document.querySelectorAll('.sg').forEach(e=>e.classList.remove('filling','removing'));
+    sg.classList.add(step.action==='add'?'filling':'removing');
+  }
+  if(step.action==='add') arrEl.classList.add('on');
+  else arrEl.classList.remove('on');
+  updateEC(step.sublevelId);
+}
+
+function updateEC(sid){
+  const sub=SUBMAP[sid]; let cnt=0;
+  for(let i=0;i<sub.cnt;i++){
+    if(document.getElementById(`a-${sid}-${i}-up`)?.classList.contains('on')) cnt++;
+    if(document.getElementById(`a-${sid}-${i}-down`)?.classList.contains('on')) cnt++;
+  }
+  const el=document.getElementById('ec-'+sid);
+  if(el) el.textContent=cnt>0?`${cnt}e⁻`:'';
+}
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let S={
+  seq:[],          // full sequence of steps
+  step:0,          // current index
+  playing:false,
+  timer:null,
+  speed:350,
+  Z:0, sym:'', charge:0, elec:0, isExc:false,
+  // Boundary index between atom fill and cation removal
+  atomEnd:0,
+};
+
+// ══════════════════════════════════════════════════
+//  ANIMATION ENGINE
+// ══════════════════════════════════════════════════
+function doStep(){
+  if(S.step>=S.seq.length){stop();clearHighlights();refreshStatus();return false;}
+  applyStep(S.seq[S.step]);
+  S.step++;
+  refreshInfo();
+  refreshStatus();
+  return S.step<S.seq.length;
+}
+
+function play(){
+  if(S.playing) return;
+  if(S.step>=S.seq.length) return;
+  S.playing=true;
+  document.getElementById('btnPlay').textContent='⏸ Pause';
+  tick();
+}
+function tick(){
+  if(!S.playing) return;
+  S.timer=setTimeout(()=>{const more=doStep();if(more)tick();else stop();},S.speed);
+}
+function stop(){
+  S.playing=false; clearTimeout(S.timer);
+  document.getElementById('btnPlay').textContent='▶ Play';
+  clearHighlights();
+}
+function reset(){
+  stop(); S.step=0; clearDiagram(); refreshInfo(); refreshStatus();
+  document.getElementById('progBar').style.width='0%';
+  document.getElementById('cfgText').textContent='';
+}
+
+// Jump to end instantly
+function finishAll(){
+  stop();
+  for(let i=S.step;i<S.seq.length;i++) applyStep(S.seq[i],true);
+  S.step=S.seq.length;
+  clearHighlights(); refreshInfo(); refreshStatus();
+}
+
+// ══════════════════════════════════════════════════
+//  INFO / STATUS REFRESH
+// ══════════════════════════════════════════════════
+function refreshInfo(){
+  document.getElementById('iStep').textContent=`${S.step} / ${S.seq.length}`;
+  // Build current config from steps applied so far
+  const cfg={};
+  for(let i=0;i<S.step;i++){
+    const s=S.seq[i];
+    if(s.action==='add') cfg[s.sublevelId]=(cfg[s.sublevelId]||0)+1;
+    else{ cfg[s.sublevelId]=(cfg[s.sublevelId]||0)-1; if(!cfg[s.sublevelId]) delete cfg[s.sublevelId]; }
+  }
+  document.getElementById('cfgText').textContent=cfgString(cfg)||'(empty)';
+  const pct=S.seq.length?((S.step/S.seq.length)*100):0;
+  document.getElementById('progBar').style.width=pct+'%';
+}
+
+function refreshStatus(){
+  const el=document.getElementById('status');
+  el.className='status';
+  if(!S.seq.length){ el.innerHTML='Enter an element and click <b>Visualise</b>.'; return;}
+  if(S.step===0){ el.innerHTML='Ready — press <b>▶ Play</b> or <b>Step →</b> to begin.'; return;}
+  if(S.step>=S.seq.length){
+    el.classList.add('done');
+    const ionStr=S.charge>0?`${S.charge}⁺`:S.charge<0?`${Math.abs(S.charge)}⁻`:'';
+    el.innerHTML=`✓ Configuration complete for <b>${S.sym}${ionStr}</b>`;
+    return;
+  }
+  const cur=S.seq[S.step-1];
+  const phase=cur.action==='add'
+    ? `<span class="phase-tag phase-fill">FILLING</span>`
+    : `<span class="phase-tag phase-remove">REMOVING</span>`;
+  const spinTxt=cur.spin==='up'?'↑ spin up (mₛ = +½)':'↓ spin down (mₛ = −½)';
+  const orbLabel=`${cur.sublevelId} orbital ${cur.orbIdx+1}`;
+  if(cur.action==='add'){
+    el.innerHTML=`${phase}Adding electron to <b>${orbLabel}</b> — ${spinTxt}`;
+  } else {
+    el.classList.add('removing');
+    el.innerHTML=`${phase}Removing electron from <b>${orbLabel}</b> — ${spinTxt}`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  VISUALISE
+// ══════════════════════════════════════════════════
+function visualise(){
+  stop();
+  const rawElem=document.getElementById('elemIn').value.trim();
+  const rawCharge=parseInt(document.getElementById('chargeIn').value)||0;
+
+  // Parse element
+  let sym = rawElem.charAt(0).toUpperCase()+rawElem.slice(1).toLowerCase();
+  let Z = ELEMENTS[sym];
+  if(!Z && !isNaN(rawElem) && rawElem!==''){
+    Z=parseInt(rawElem); sym=Z2SYM[Z]||`Z${Z}`;
+  }
+  if(!Z||Z<1||Z>92){
+    setStatus(`⚠ Unknown element. Enter a symbol (e.g. Fe) or atomic number (1–92).`,'');return;
+  }
+
+  const charge=rawCharge;
+  const elec=Z-charge;
+
+  if(elec<0){setStatus('⚠ Charge is too high — element has no electrons left.','');return;}
+  if(elec>Z+4){setStatus('⚠ Charge too negative for this element.','');return;}
+
+  const isExc=!!EXCEPTIONS[Z];
+  const excCfg=isExc?EXCEPTIONS[Z].cfg:null;
+
+  // Build sequence
+  let atomSeq;
+  if(charge>=0){
+    // Fill as neutral atom (checking for exceptions)
+    atomSeq=buildAddSeq(Z, excCfg);
+  } else {
+    // Anion: fill extra electrons (no exceptions for anions)
+    atomSeq=buildAddSeq(elec, null);
+  }
+
+  let fullSeq;
+  if(charge<=0){
+    fullSeq=atomSeq;
+  } else {
+    // Cation: atom fill + removal
+    const atomCfg=seqToConfig(atomSeq);
+    const remSeq=buildRemovalSeq(atomCfg, charge);
+    fullSeq=[...atomSeq,...remSeq];
+  }
+
+  S={
+    seq:fullSeq, step:0, playing:false, timer:null, speed:S.speed,
+    Z, sym, charge, elec, isExc,
+    atomEnd:atomSeq.length,
+  };
+
+  // Update info bar
+  const ionStr=charge>0?`${charge}⁺`:charge<0?`${Math.abs(charge)}⁻`:'';
+  document.getElementById('iSym').textContent=sym+ionStr;
+  document.getElementById('iZ').textContent=Z;
+  document.getElementById('iElec').textContent=elec;
+  const nb=document.getElementById('excBadge');
+  nb.classList.toggle('on', isExc&&charge===0);
+  document.getElementById('infoBar').style.display='flex';
+
+  // Enable buttons
+  ['btnStep','btnPlay','btnFull','btnReset'].forEach(id=>{
+    document.getElementById(id).disabled=false;
+  });
+
+  clearDiagram(); refreshInfo(); refreshStatus();
+}
+
+function setStatus(msg,cls){
+  const el=document.getElementById('status');
+  el.className='status'+(cls?' '+cls:'');
+  el.innerHTML=msg;
+}
+
+// ══════════════════════════════════════════════════
+//  EVENTS
+// ══════════════════════════════════════════════════
+document.getElementById('btnVis').addEventListener('click',visualise);
+document.getElementById('elemIn').addEventListener('keydown',e=>{if(e.key==='Enter')visualise();});
+document.getElementById('chargeIn').addEventListener('keydown',e=>{if(e.key==='Enter')visualise();});
+
+document.getElementById('btnStep').addEventListener('click',()=>{
+  if(!S.seq.length) return;
+  stop(); doStep();
+});
+document.getElementById('btnPlay').addEventListener('click',()=>{
+  if(!S.seq.length) return;
+  if(S.playing) stop();
+  else{ if(S.step>=S.seq.length) reset(); play(); }
+});
+document.getElementById('btnFull').addEventListener('click',()=>{
+  if(!S.seq.length) return;
+  finishAll();
+});
+document.getElementById('btnReset').addEventListener('click',()=>{
+  if(!S.seq.length) return;
+  reset();
+});
+
+const SPEEDS=[900,600,350,170,60];
+const SPEED_NAMES=['Slow','Med–','Med','Fast','⚡'];
+document.getElementById('speedSlider').addEventListener('input',function(){
+  const idx=+this.value-1;
+  S.speed=SPEEDS[idx];
+  document.getElementById('speedLabel').textContent=SPEED_NAMES[idx];
+});
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+buildDiagram();
+</script>
+</body>
+</html>
