@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IB Chemistry: Secondary Cells Simulator</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 800px;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid #3498db;
+            background: white;
+            color: #3498db;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+        }
+        canvas {
+            background: #ffffff;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            display: block;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+        .ctrl-btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: white;
+        }
+        #dischargeBtn { background-color: #e74c3c; }
+        #dischargeBtn.active { box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.4); transform: scale(0.98); }
+        #chargeBtn { background-color: #2ecc71; }
+        #chargeBtn.active { box-shadow: 0 0 0 4px rgba(46, 204, 113, 0.4); transform: scale(0.98); }
+        #pauseBtn { background-color: #95a5a6; }
+        #pauseBtn.active { box-shadow: 0 0 0 4px rgba(149, 165, 166, 0.4); transform: scale(0.98); }
+        
+        .legend {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .equation-box {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #2c3e50;
+            border-radius: 4px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 15px;
+            color: #2c3e50;
+            min-height: 120px;
+        }
+        .equation-box h4 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #333;
+        }
+        .eq-line {
+            margin-bottom: 8px;
+        }
+        .eq-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 160px;
+            color: #34495e;
+        }
+        .highlight-text { color: #e74c3c; font-weight: bold; }
+        .highlight-charge { color: #27ae60; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 style="text-align: center; margin-top: 0; margin-bottom: 10px;">Rechargeable Cells Simulator</h2>
+    
+    <div class="tabs">
+        <button id="tabLi" class="tab-btn active">Lithium-Ion Cell</button>
+        <button id="tabPb" class="tab-btn">Lead-Acid Cell</button>
+        <button id="tabNiCd" class="tab-btn">NiCd Cell</button>
+    </div>
+
+    <canvas id="simCanvas" width="800" height="400"></canvas>
+    
+    <div class="controls">
+        <button id="dischargeBtn" class="ctrl-btn">Discharge (Galvanic)</button>
+        <button id="pauseBtn" class="ctrl-btn active">Pause</button>
+        <button id="chargeBtn" class="ctrl-btn">Charge (Electrolytic)</button>
+    </div>
+
+    <div class="legend" id="legendArea">
+        </div>
+
+    <div class="equation-box" id="equationArea">
+        </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let simType = 'li-ion'; 
+    let mode = 'idle'; 
+    let particles = [];
+    let stateOfCharge = 0.5; 
+    
+    // Tighter Geometry
+    const anodeX = 250;
+    const cathodeX = 550;
+    const centerX = 400; // Middle of the canvas
+    const latticeY = 150;
+    const latticeHeight = 200;
+    const wireY = 50;
+
+    class Particle {
+        constructor(type, startX, startY, endX, endY) {
+            this.type = type; 
+            this.x = startX;
+            this.y = startY;
+            this.endX = endX;
+            this.endY = endY;
+            this.progress = 0;
+            this.speed = type === 'electron' ? 0.02 : 0.006; 
+        }
+
+        update() {
+            this.progress += this.speed;
+            if (this.progress > 1) this.progress = 1;
+
+            if (this.type !== 'electron') {
+                this.x = this.x + (this.endX - this.x) * this.speed;
+                this.y = this.y + (this.endY - this.y) * this.speed;
+            } else {
+                this.x = this.x + (this.endX - this.x) * this.speed;
+                this.y = wireY; 
+            }
+        }
+
+        draw(ctx) {
+            ctx.beginPath();
+            if (this.type === 'li-ion') {
+                ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#e74c3c';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.fillText('+', this.x - 3, this.y + 3);
+            } else if (this.type === 'so4-ion') {
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#9b59b6';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '9px Arial';
+                ctx.fillText('2-', this.x - 4, this.y + 3);
+            } else if (this.type === 'oh-ion') {
+                ctx.arc(this.x, this.y, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#3498db';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '9px Arial';
+                ctx.fillText('-', this.x - 2, this.y + 3);
+            } else if (this.type === 'electron') {
+                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#f1c40f';
+                ctx.fill();
+            }
+            ctx.closePath();
+        }
+    }
+
+    function updateUI() {
+        const legendArea = document.getElementById('legendArea');
+        const eqArea = document.getElementById('equationArea');
+
+        document.getElementById('dischargeBtn').classList.toggle('active', mode === 'discharge');
+        document.getElementById('chargeBtn').classList.toggle('active', mode === 'charge');
+        document.getElementById('pauseBtn').classList.toggle('active', mode === 'idle');
+
+        if (simType === 'li-ion') {
+            legendArea.innerHTML = `
+                <div class="legend-item"><span class="dot" style="background: #e74c3c;"></span> Li+ Ion (Internal)</div>
+                <div class="legend-item"><span class="dot" style="background: #f1c40f;"></span> Electron (External)</div>
+            `;
+            
+            if (mode === 'charge') {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-charge">Charging</span> Equations (Electrolytic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (+):</span> LiCoO<sub>2(s)</sub> &rarr; CoO<sub>2(s)</sub> + Li<sup>+</sup><sub>(intercalated)</sub> + e<sup>-</sup></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (-):</span> 6C<sub>(s)</sub> + Li<sup>+</sup><sub>(intercalated)</sub> + e<sup>-</sup> &rarr; LiC<sub>6(s)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> LiCoO<sub>2(s)</sub> + 6C<sub>(s)</sub> &rarr; CoO<sub>2(s)</sub> + LiC<sub>6(s)</sub></div>
+                `;
+            } else {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-text">Discharging</span> Equations (Galvanic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (-):</span> LiC<sub>6(s)</sub> &rarr; Li<sup>+</sup><sub>(intercalated)</sub> + e<sup>-</sup> + 6C<sub>(s)</sub></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (+):</span> CoO<sub>2(s)</sub> + Li<sup>+</sup><sub>(intercalated)</sub> + e<sup>-</sup> &rarr; LiCoO<sub>2(s)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> LiC<sub>6(s)</sub> + CoO<sub>2(s)</sub> &rarr; 6C<sub>(s)</sub> + LiCoO<sub>2(s)</sub></div>
+                `;
+            }
+        } else if (simType === 'lead-acid') {
+            legendArea.innerHTML = `
+                <div class="legend-item"><span class="dot" style="background: #9b59b6;"></span> SO₄²⁻ Ion (Electrolyte)</div>
+                <div class="legend-item"><span class="dot" style="background: #f1c40f;"></span> Electron (External)</div>
+                <div class="legend-item"><span class="dot" style="background: #ecf0f1; border: 1px solid #bdc3c7;"></span> PbSO₄ Layer</div>
+            `;
+            
+            if (mode === 'charge') {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-charge">Charging</span> Equations (Electrolytic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (+):</span> PbSO<sub>4(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub> &rarr; PbO<sub>2(s)</sub> + 4H<sup>+</sup><sub>(aq)</sub> + SO<sub>4</sub><sup>2-</sup><sub>(aq)</sub> + 2e<sup>-</sup></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (-):</span> PbSO<sub>4(s)</sub> + 2e<sup>-</sup> &rarr; Pb<sub>(s)</sub> + SO<sub>4</sub><sup>2-</sup><sub>(aq)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> 2PbSO<sub>4(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub> &rarr; Pb<sub>(s)</sub> + PbO<sub>2(s)</sub> + 2H<sub>2</sub>SO<sub>4(aq)</sub></div>
+                `;
+            } else {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-text">Discharging</span> Equations (Galvanic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (-):</span> Pb<sub>(s)</sub> + SO<sub>4</sub><sup>2-</sup><sub>(aq)</sub> &rarr; PbSO<sub>4(s)</sub> + 2e<sup>-</sup></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (+):</span> PbO<sub>2(s)</sub> + 4H<sup>+</sup><sub>(aq)</sub> + SO<sub>4</sub><sup>2-</sup><sub>(aq)</sub> + 2e<sup>-</sup> &rarr; PbSO<sub>4(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> Pb<sub>(s)</sub> + PbO<sub>2(s)</sub> + 2H<sub>2</sub>SO<sub>4(aq)</sub> &rarr; 2PbSO<sub>4(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub></div>
+                `;
+            }
+        } else {
+            legendArea.innerHTML = `
+                <div class="legend-item"><span class="dot" style="background: #3498db;"></span> OH⁻ Ion (Alkaline)</div>
+                <div class="legend-item"><span class="dot" style="background: #f1c40f;"></span> Electron (External)</div>
+                <div class="legend-item"><span class="dot" style="background: #bdc3c7; border: 1px solid #7f8c8d;"></span> Hydroxide Layers</div>
+            `;
+            
+            if (mode === 'charge') {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-charge">Charging</span> Equations (Electrolytic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (+):</span> 2Ni(OH)<sub>2(s)</sub> + 2OH<sup>-</sup><sub>(aq)</sub> &rarr; 2NiO(OH)<sub>(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub> + 2e<sup>-</sup></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (-):</span> Cd(OH)<sub>2(s)</sub> + 2e<sup>-</sup> &rarr; Cd<sub>(s)</sub> + 2OH<sup>-</sup><sub>(aq)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> Cd(OH)<sub>2(s)</sub> + 2Ni(OH)<sub>2(s)</sub> &rarr; Cd<sub>(s)</sub> + 2NiO(OH)<sub>(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub></div>
+                `;
+            } else {
+                eqArea.innerHTML = `
+                    <h4><span class="highlight-text">Discharging</span> Equations (Galvanic Cell)</h4>
+                    <div class="eq-line"><span class="eq-label">Anode (-):</span> Cd<sub>(s)</sub> + 2OH<sup>-</sup><sub>(aq)</sub> &rarr; Cd(OH)<sub>2(s)</sub> + 2e<sup>-</sup></div>
+                    <div class="eq-line"><span class="eq-label">Cathode (+):</span> 2NiO(OH)<sub>(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub> + 2e<sup>-</sup> &rarr; 2Ni(OH)<sub>2(s)</sub> + 2OH<sup>-</sup><sub>(aq)</sub></div>
+                    <hr style="border: 0; border-top: 1px dashed #bdc3c7; margin: 10px 0;">
+                    <div class="eq-line"><span class="eq-label">Overall Cell:</span> Cd<sub>(s)</sub> + 2NiO(OH)<sub>(s)</sub> + 2H<sub>2</sub>O<sub>(l)</sub> &rarr; Cd(OH)<sub>2(s)</sub> + 2Ni(OH)<sub>2(s)</sub></div>
+                `;
+            }
+        }
+    }
+
+    function spawnParticles() {
+        if (mode === 'idle') return;
+
+        const randomY = latticeY + 10 + Math.random() * (latticeHeight - 20);
+        // Tighter center electrolyte spawn
+        const centerElectrolyteX = centerX + (Math.random() * 80 - 40);
+        
+        const deepAnodeX = anodeX + (Math.random() * 40 - 20); 
+        const deepCathodeX = cathodeX + (Math.random() * 40 - 20); 
+
+        if (mode === 'discharge' && stateOfCharge > 0) stateOfCharge -= 0.002;
+        if (mode === 'charge' && stateOfCharge < 1) stateOfCharge += 0.002;
+
+        if (simType === 'li-ion') {
+            if (mode === 'discharge' && stateOfCharge > 0) {
+                particles.push(new Particle('li-ion', deepAnodeX, randomY, deepCathodeX, randomY));
+                particles.push(new Particle('electron', anodeX, wireY, cathodeX, wireY));
+            } else if (mode === 'charge' && stateOfCharge < 1) {
+                particles.push(new Particle('li-ion', deepCathodeX, randomY, deepAnodeX, randomY));
+                particles.push(new Particle('electron', cathodeX, wireY, anodeX, wireY));
+            }
+        } else if (simType === 'lead-acid') {
+            if (mode === 'discharge' && stateOfCharge > 0) {
+                if (Math.random() > 0.5) {
+                    particles.push(new Particle('so4-ion', centerElectrolyteX, randomY, deepAnodeX, randomY));
+                } else {
+                    particles.push(new Particle('so4-ion', centerElectrolyteX, randomY, deepCathodeX, randomY));
+                }
+                particles.push(new Particle('electron', anodeX, wireY, cathodeX, wireY));
+            } else if (mode === 'charge' && stateOfCharge < 1) {
+                if (Math.random() > 0.5) {
+                    particles.push(new Particle('so4-ion', deepAnodeX, randomY, centerElectrolyteX, randomY));
+                } else {
+                    particles.push(new Particle('so4-ion', deepCathodeX, randomY, centerElectrolyteX, randomY));
+                }
+                particles.push(new Particle('electron', cathodeX, wireY, anodeX, wireY));
+            }
+        } else if (simType === 'nicd') {
+            if (mode === 'discharge' && stateOfCharge > 0) {
+                particles.push(new Particle('oh-ion', cathodeX - 50, randomY, anodeX + 50, randomY));
+                particles.push(new Particle('electron', anodeX, wireY, cathodeX, wireY));
+            } else if (mode === 'charge' && stateOfCharge < 1) {
+                particles.push(new Particle('oh-ion', anodeX + 50, randomY, cathodeX - 50, randomY));
+                particles.push(new Particle('electron', cathodeX, wireY, anodeX, wireY));
+            }
+        }
+    }
+
+    function drawStaticElements() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Wire mapped to new tighter coordinates
+        ctx.beginPath();
+        ctx.moveTo(anodeX, latticeY);
+        ctx.lineTo(anodeX, wireY);
+        ctx.lineTo(cathodeX, wireY);
+        ctx.lineTo(cathodeX, latticeY);
+        ctx.strokeStyle = '#34495e';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(centerX, wireY, 20, 0, Math.PI * 2);
+        ctx.fillStyle = mode === 'discharge' ? '#f1c40f' : (mode === 'charge' ? '#2ecc71' : '#bdc3c7');
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#333';
+        ctx.font = '12px Arial';
+        ctx.fillText(mode === 'discharge' ? 'LOAD' : (mode === 'charge' ? 'PWR' : 'OFF'), centerX - 16, wireY + 4);
+
+        if (simType === 'li-ion') {
+            ctx.setLineDash([10, 10]);
+            ctx.beginPath();
+            ctx.moveTo(centerX, latticeY - 20);
+            ctx.lineTo(centerX, latticeY + latticeHeight + 20);
+            ctx.strokeStyle = '#95a5a6';
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillText('Separator', centerX - 28, latticeY + latticeHeight + 35);
+
+            drawElectrode(anodeX - 50, latticeY, 100, latticeHeight, '#7f8c8d', 'Graphite (Anode)', true);
+            drawElectrode(cathodeX - 50, latticeY, 100, latticeHeight, '#3498db', 'Metal Oxide (Cathode)', true);
+        } else if (simType === 'lead-acid') {
+            const acidOpacity = 0.1 + (stateOfCharge * 0.2); 
+            ctx.fillStyle = `rgba(52, 152, 219, ${acidOpacity})`;
+            // Dynamically sized electrolyte bounding box
+            ctx.fillRect(anodeX - 70, latticeY - 20, (cathodeX - anodeX) + 140, latticeHeight + 40);
+            ctx.fillStyle = '#333';
+            ctx.fillText('H₂SO₄ Electrolyte', centerX - 55, latticeY + latticeHeight + 35);
+
+            const pbso4Thickness = (1 - stateOfCharge) * 20;
+
+            drawElectrode(anodeX - 50, latticeY, 100, latticeHeight, '#95a5a6', 'Spongy Lead (Anode)', false);
+            if (pbso4Thickness > 0) {
+                ctx.fillStyle = 'rgba(236, 240, 241, 0.8)';
+                ctx.fillRect(anodeX + 50, latticeY, pbso4Thickness, latticeHeight);
+            }
+
+            drawElectrode(cathodeX - 50, latticeY, 100, latticeHeight, '#c0392b', 'Lead(IV) Oxide (Cathode)', false);
+            if (pbso4Thickness > 0) {
+                ctx.fillStyle = 'rgba(236, 240, 241, 0.8)';
+                ctx.fillRect(cathodeX - 50 - pbso4Thickness, latticeY, pbso4Thickness, latticeHeight);
+            }
+        } else if (simType === 'nicd') {
+            ctx.fillStyle = `rgba(236, 240, 241, 0.6)`;
+            ctx.fillRect(anodeX - 70, latticeY - 20, (cathodeX - anodeX) + 140, latticeHeight + 40);
+            ctx.fillStyle = '#333';
+            ctx.fillText('KOH Electrolyte (Alkaline)', centerX - 75, latticeY + latticeHeight + 35);
+
+            const hydroxideThickness = (1 - stateOfCharge) * 20;
+
+            drawElectrode(anodeX - 50, latticeY, 100, latticeHeight, '#7f8c8d', 'Cadmium (Anode)', false);
+            if (hydroxideThickness > 0) {
+                ctx.fillStyle = 'rgba(189, 195, 199, 0.9)'; 
+                ctx.fillRect(anodeX + 50, latticeY, hydroxideThickness, latticeHeight);
+            }
+
+            drawElectrode(cathodeX - 50, latticeY, 100, latticeHeight, '#2c3e50', 'NiO(OH) (Cathode)', false);
+            if (hydroxideThickness > 0) {
+                ctx.fillStyle = 'rgba(189, 195, 199, 0.9)'; 
+                ctx.fillRect(cathodeX - 50 - hydroxideThickness, latticeY, hydroxideThickness, latticeHeight);
+            }
+        }
+    }
+
+    function drawElectrode(x, y, w, h, color, label, isLattice) {
+        ctx.fillStyle = color;
+        if (isLattice) {
+            for(let i = 0; i < 5; i++) {
+                ctx.fillRect(x, y + i * 40, w, 10);
+            }
+        } else {
+            ctx.fillRect(x, y, w, h);
+        }
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.fillText(label, x - 10, y + h + 20);
+    }
+
+    function animate() {
+        drawStaticElements();
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            particles[i].draw(ctx);
+            if (particles[i].progress >= 1) {
+                particles.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // Event Listeners
+    document.getElementById('dischargeBtn').addEventListener('click', () => {
+        mode = 'discharge';
+        updateUI();
+    });
+    
+    document.getElementById('chargeBtn').addEventListener('click', () => {
+        mode = 'charge';
+        updateUI();
+    });
+    
+    document.getElementById('pauseBtn').addEventListener('click', () => {
+        mode = 'idle';
+        updateUI();
+    });
+
+    function switchTab(type, tabId) {
+        simType = type;
+        particles = [];
+        mode = 'idle';
+        
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        updateUI();
+    }
+
+    document.getElementById('tabLi').addEventListener('click', () => switchTab('li-ion', 'tabLi'));
+    document.getElementById('tabPb').addEventListener('click', () => switchTab('lead-acid', 'tabPb'));
+    document.getElementById('tabNiCd').addEventListener('click', () => switchTab('nicd', 'tabNiCd'));
+
+    // Init
+    updateUI();
+    setInterval(spawnParticles, 300);
+    animate();
+</script>
+</body>
+</html>
