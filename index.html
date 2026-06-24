@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electrochemistry — Interactive Tools</title>
+  <style>
+    :root {
+      --ink: #1f2a37;
+      --muted: #5b6b7c;
+      --card: #f3f6fa;
+      --card-hover: #e4ecf5;
+      --accent: #1565c0;
+      --line: #d8e2ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      max-width: 820px; margin: 0 auto; padding: 2rem 1.2rem 4rem;
+      color: var(--ink); line-height: 1.5; background: #fff;
+    }
+    .back {
+      display: inline-block; margin-bottom: 1.5rem;
+      color: var(--accent); text-decoration: none; font-size: 0.95rem;
+    }
+    .back:hover { text-decoration: underline; }
+    header h1 { margin: 0 0 0.2rem; font-size: 1.9rem; }
+    header p { margin: 0 0 2rem; color: var(--muted); }
+    .grid {
+      display: grid; gap: 0.8rem;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    .card {
+      display: block; padding: 1.1rem 1.2rem;
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; text-decoration: none; color: var(--ink);
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .card:hover { background: var(--card-hover); transform: translateY(-2px); }
+    .card .name { font-weight: 600; font-size: 1.05rem; }
+    .card .desc { margin-top: 0.3rem; font-size: 0.9rem; color: var(--muted); }
+    footer { margin-top: 3rem; font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <a class="back" href="../index.html">← All topics</a>
+
+  <header>
+    <h1>Electrochemistry</h1>
+    <p>Interactive simulations and virtual labs</p>
+  </header>
+
+  <div class="grid">
+    <a class="card" href="ACS_2026_cellsimulator_Year6.html">
+      <div class="name">Electrochemical Cell Simulator</div>
+      <div class="desc">Build and explore cells — Year 6</div>
+    </a>
+
+    <a class="card" href="Electrolysis%20Virtual%20Lab.html">
+      <div class="name">Electrolysis Virtual Lab</div>
+      <div class="desc">Run electrolysis experiments interactively</div>
+    </a>
+
+    <a class="card" href="Rechargeabe_batteries.html">
+      <div class="name">Rechargeable Batteries</div>
+      <div class="desc">How rechargeable cells charge and discharge</div>
+    </a>
+  </div>
+
+  <footer>
+    Anglo-Chinese School (Independent) · IB Chemistry
+  </footer>
+</body>
+</html>
